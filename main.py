@@ -12,7 +12,7 @@ from page_func import *
 from notice import *
 
 warnings.filterwarnings('ignore')
-
+has_appointed = {"to": False, "back": False}
 
 def sys_path(browser):
     path = 'driver'
@@ -75,6 +75,12 @@ def page(config, browser="chrome"):
     web_status = True
     # appoint_status = {'to': True, 'back': True}
     appoint_status, log_exceeds = judge_time_limit(to_time, back_time)
+    # 不再重复预约
+    if has_appointed["to"]:
+        appoint_status["to"] = False
+    if has_appointed["back"]:
+        appoint_status["back"] = False
+
     # log_str += log_exceeds
     if not (appoint_status['to'] or appoint_status['back']):
         # 时间没到
@@ -139,13 +145,20 @@ def page(config, browser="chrome"):
     #         print("微信通知失败\n")
     # driver.quit()
     log_status(config, [appoint_to, appoint_back], log_str)
+    if appoint_to:
+        has_appointed["to"] = True
+    if appoint_back:
+        has_appointed["back"] = True
     return web_status
 
 def task(config, browser):
     status = False
     while not status:
         status = page(config, browser)
+        if (has_appointed["to"] and has_appointed["back"]):
+            break
       
+    print("所有班车均已经预约成功")
 
 if __name__ == '__main__':
     browser = "chrome"

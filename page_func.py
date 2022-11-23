@@ -95,6 +95,7 @@ def click_appoint(driver, appoint_time_list):
 
     flag = False
     log_str = ""
+    appointed = None
     for appoint_time in appoint_time_list:
         for i in range(len(times)):
             if times[i] == appoint_time:
@@ -102,6 +103,8 @@ def click_appoint(driver, appoint_time_list):
                 if appointClass != "nowAppoint":
                     log_str += f"{appoint_time} 班车 预约失败！原因：{status[i].text}\n"
                     print( f"{appoint_time} 班车 预约失败！原因：{status[i].text}\n")
+                    if status[i].text == "取消预约": # 这说明已经约过了
+                        appointed = appoint_time
                     break;
                 else:
                     status[i].find_element(By.CLASS_NAME, 'appointbtn').click()
@@ -109,16 +112,17 @@ def click_appoint(driver, appoint_time_list):
                     if not flag:
                         log_str += f"{appoint_time} 班车 预约失败！原因：{reason_str}\n"
                         print( f"{appoint_time} 班车 预约失败！原因：{reason_str}\n")
-
+                        index = reason_str.find(':')
+                        appointed = reason_str[index-2:index+3]
+                    else:
+                        appointed = appoint_time
                     break
-        if flag:
+        if flag :
             break
     if flag:
         log_str += "{appoint_time}班车 预约成功！"
         print( "{appoint_time}班车 预约成功！")
-        return appoint_time, log_str
-    else:
-        return None, log_str 
+    return appointed, log_str 
 
 def check_appoint_status(driver, i):
     status = driver.find_elements(By.CLASS_NAME, "statusFont")
@@ -146,9 +150,8 @@ def wait_for_ready(type):
     else:
         raise ValueError("type must be 'to' or 'back'")
     flag = judge_close_time(prepare_time, ready_time)
-    if flag == TimeCloseEnum.EARLY:
+    if flag == TimeCloseEnum.EARLY:    
         if type=="back":
-            print("只能在当天11:55后预约返程程班车")
             log_str = "只能在当天11:55后预约返程班车\n"
         if type=="to":
             print("只能在当天14:55后预约去程班车")
@@ -429,3 +432,4 @@ def click_pay(driver):
 
 if __name__ == '__main__':
     pass
+
