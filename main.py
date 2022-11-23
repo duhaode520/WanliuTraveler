@@ -69,12 +69,13 @@ def log_status(config, start_time, log_str):
 
 
 def page(config, browser="chrome"):
-    user_name, password, to_time, back_time, wechat_notice, sckey = load_config(config)
+    user_name, password, date, to_time, back_time, wechat_notice, sckey = load_config(config)
     
     log_str = ""
     web_status = True
+    # appoint_status = {'to': True, 'back': True}
     appoint_status, log_exceeds = judge_time_limit(to_time, back_time)
-    log_str += log_exceeds
+    # log_str += log_exceeds
     if not (appoint_status['to'] or appoint_status['back']):
         # 时间没到
         log_status(config, [to_time.split('/'),
@@ -113,15 +114,19 @@ def page(config, browser="chrome"):
             log_str += "登录失败\n"
             web_status = False
 
+    appoint_to, appoint_back = None, None
     if web_status:
+        to_time_list = to_time.split('/')
+        back_time_list = back_time.split('/')
         try:
             if appoint_status['to']:
-                appoint_to, log_to = appoint(driver, to_time, type="to")
+                appoint_to, log_to = appoint(driver, to_time_list, type="to")
                 log_str += log_to
             if appoint_status['back']:
-                appoint_back, log_back = appoint(driver, back_time, type='back')
+                appoint_back, log_back = appoint(driver, back_time_list, type='back')
                 log_str += log_back
-        except:
+        except Exception as e:
+            print(e)
             log_str += "预约班车失败\n"
             print("预约班车失败\n")
             web_status = False
@@ -136,7 +141,10 @@ def page(config, browser="chrome"):
     log_status(config, [appoint_to, appoint_back], log_str)
     return web_status
 
-
+def task(config, browser):
+    status = False
+    while not status:
+        status = page(config, browser)
       
 
 if __name__ == '__main__':
@@ -146,4 +154,4 @@ if __name__ == '__main__':
     # print(lst_conf)
     # multi_run(lst_conf, browser)
     # # sequence_run(lst_conf, browser)
-    page('config0.ini', browser)
+    task('config0.ini', browser)

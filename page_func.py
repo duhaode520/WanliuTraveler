@@ -36,7 +36,9 @@ def login(driver, user_name, password, retry=0):
         driver.find_element(By.ID, "logon_button").click()
 
         # 跳转回预约的界面
-        WebDriverWait(driver, 10).until(EC.url_matches(appURL))
+        WebDriverWait(driver, 10).until(
+            EC.url_contains(appURL))
+
         print('门户登录成功')
         return '门户登录成功\n'
     except:
@@ -57,11 +59,11 @@ def judge_time_limit(to_time, back_time):
     if (len(to_time) > 0) and (time_hour < time_14_55):
         print("只能在当天14:55后预约第二天的去程班车")
         log_str = "只能在当天14:55后预约第二天的去程班车\n"
-        status['back'] = False 
+        status['to'] = False 
     if (len(back_time) > 0) and (time_hour < time_11_55):
         print("只能在当天11:55后预约返程班车")
         log_str = "只能在当天11:55后预约返程班车\n"
-        status['to'] = False
+        status['back'] = False
     
     if status['to']:
         print("可以预约去程班车")
@@ -77,14 +79,14 @@ def appoint(driver, appoint_time_list, type):
     print('预约中...')
     log_str = '预约中...\n'
     log_str += wait_for_ready(type)
-    driver.fresh()
-    WebDriverWait.until(
+    driver.refresh()
+    WebDriverWait(driver, 10).until(
         EC.visibility_of_all_elements_located((By.CLASS_NAME, "statusFont")))
 
     # 点击预约
     appoint_time, click_log = click_appoint(driver, appoint_time_list)
     log_str += click_log
-    return log_str
+    return appoint_time, log_str
     
 def click_appoint(driver, appoint_time_list):
     times = driver.find_elements(By.CLASS_NAME, "activeTime")
@@ -96,14 +98,18 @@ def click_appoint(driver, appoint_time_list):
     for appoint_time in appoint_time_list:
         for i in range(len(times)):
             if times[i] == appoint_time:
-                appointClass = status[i].get_attribute('class')[-1]
+                appointClass = status[i].get_attribute('class').split(' ')[-1]
                 if appointClass != "nowAppoint":
-                    log_str += "{appoint_time}班车 预约失败！原因：{status[i].text}\n"
-                    print( "{appoint_time}班车 预约失败！原因：{status[i].text}\n")
+                    log_str += f"{appoint_time} 班车 预约失败！原因：{status[i].text}\n"
+                    print( f"{appoint_time} 班车 预约失败！原因：{status[i].text}\n")
                     break;
                 else:
                     status[i].find_element(By.CLASS_NAME, 'appointbtn').click()
-                    flag = check_appoint_status(driver, i)
+                    flag, reason_str = check_appoint_status(driver, i)
+                    if not flag:
+                        log_str += f"{appoint_time} 班车 预约失败！原因：{reason_str}\n"
+                        print( f"{appoint_time} 班车 预约失败！原因：{reason_str}\n")
+
                     break
         if flag:
             break
@@ -116,24 +122,37 @@ def click_appoint(driver, appoint_time_list):
 
 def check_appoint_status(driver, i):
     status = driver.find_elements(By.CLASS_NAME, "statusFont")
-    if status[i].find_element(By.CLASS_NAME, 'cancelbtn'):
-        return True
-    else:
-        return False
+    try:
+        status[i].find_element(By.CLASS_NAME, 'cancelbtn')
+        return True, ""
+    except:
+        # Not found
+        reason_str = get_reason_str(driver)
+        return False, reason_str
+
+def get_reason_str(driver):
+    failed = driver.find_element(By.CLASS_NAME, "total-fail")
+    text = failed.find_element(By.CLASS_NAME, "confont").text
+    return text
+
 
 def wait_for_ready(type):
-    if type == "to":
+    if type == "back":
         prepare_time = datetime.time(11, 55, 0)
         ready_time = datetime.time(12, 0, 0)
-    elif type == "back":
+    elif type == "to":
         prepare_time = datetime.time(14, 55, 0)
         ready_time = datetime.time(15, 0, 0)
     else:
         raise ValueError("type must be 'to' or 'back'")
     flag = judge_close_time(prepare_time, ready_time)
     if flag == TimeCloseEnum.EARLY:
-        print("只能在当天11:55后预约去程班车")
-        log_str = "只能在当天11:55后预约去程班车\n"
+        if type=="back":
+            print("只能在当天11:55后预约返程程班车")
+            log_str = "只能在当天11:55后预约返程班车\n"
+        if type=="to":
+            print("只能在当天14:55后预约去程班车")
+            log_str = "只能在当天14:55后预约去程班车\n"
         return log_str
     elif flag == TimeCloseEnum.READY:
         while True:
@@ -142,13 +161,12 @@ def wait_for_ready(type):
                 break
             else:
                 time.sleep(0.5)
-        return "可以预约\n"
+    return "可以预约\n"
     
         
 def judge_close_time(standard_time, check_time):
     now = datetime.datetime.today()
-    time_hour = datetime.datetime.strptime(
-        str(now).split()[1][:-7], "%H:%M:%S")
+    time_hour = datetime.time(now.hour, now.minute, now.second)
     if time_hour < standard_time:
         return TimeCloseEnum.EARLY
     elif standard_time < time_hour < check_time:
